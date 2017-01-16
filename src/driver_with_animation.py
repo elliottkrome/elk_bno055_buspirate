@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
-    visualization = True
+
     bno055 = BNO055("/dev/tty.usbserial-AH03F33K", 115200, timeout=0.4)
 
     bno055.setup(verbose=True)     # Handles various setup tasks
@@ -37,26 +37,33 @@ if __name__ == '__main__':
     # print "status:    ", status
     # print "self_test: ", self_test
     # print "error:     ", error
-    #
-    # config_data = pickle.load(open('calib_data.pickle', 'rb'))
-    # bno055.set_calibration(config_data)
-    # bno055.get_cal_status(verbose=True)
-    # bno055.get_calibration_info(verbose=True)
+
     ###########################################################################
-    sample = 0                               # unnecessary, just for counting
     quat_scale_f = (1.0 / (1 << 14))         # see manual, bottom of pg. 35
     q_array = np.array([], dtype=np.quaternion)  # declare empty array
     max_array_size = 200                     # never need more than this
-    # setup get data loop
-    bno055.enter_fused_data_mode()           # Let the BNO055 do its nice thing
-    #                                        # __set address to read from__
-    # bno055.write_bytes([VECTOR_EULER])       # 1st byte of vector to read
-    bno055.write_bytes([VECTOR_QUATERNION])  # 1st byte of vector to read
+
+    # setup get data loop, lets the BNO055 do its thing
     #
+    bno055.enter_fused_data_mode()           
+
+    # set address to read from
+    # alternatively, if you wanted to stream euler angles, you could make the
+    # argument hear VECTOR_EULER
+    #
+    bno055.write_bytes([VECTOR_QUATERNION])  # 1st byte of vector to read
+
+    # setup some variables for displaying results from loop
+    #
+    sample_count = 0 # unnecessary, just for displaying sample_count
+    last = time.time() # setup initial
+
     # loop to continuously get data
-    last = time.time()
+    #
     while True:
-        sample += 1
+
+        sample_count += 1 # unnecessary, just for displaying sample_count count
+
         ################
         # *~* animation stuff
         bno055.setup_anim()
@@ -73,6 +80,8 @@ if __name__ == '__main__':
         # *~* end euler reading stuff
         ################
 
+        # read data from bno055, this will be converted into quaternion later
+        #
         t, x, y, z = [i * quat_scale_f for i in bno055.read_vector(count=4)]
         print "    t = {0:.7f}  x = {1:.7f}  y = {2:.7f} z = {3:.7f}".\
             format(t, x, y, z)
@@ -80,12 +89,13 @@ if __name__ == '__main__':
 
         q = np.quaternion(t, x, y, z)
         q_array = np.append(q_array, q)  # append new quaternion to array
-        #
-        if sample > max_array_size:          # remove quaternions more than
+
+        if sample_count > max_array_size:          # remove quaternions more than
             #                                    max_array_size samples in past
             q_array = np.delete(q_array, 0, axis=0)
-        ########
-        if sample % 100 is 0:
+
+        ######## this is just for debugging / printing purposes.
+        if sample_count % 100 is 0:
             print "*---------------------------------------------------------*"
             print q_array
             print "    -\n    -         sampling frequency:",\
@@ -96,16 +106,10 @@ if __name__ == '__main__':
             #                                           0 is uncalibrated
             #                                           3 is fully calibrated
             #
-            ################
-            # *~* saving calibration data stuff
-            # calibration_data = bno055.get_calibration_info(verbose=True)
-            # write calibration_data to file calib_data.pickle
-            # with open("calib_data.pickle", 'wb') as calib_data_file_object:
-            #    pickle.dump(calibration_data, calib_data_file_object)
-            # *~* end saving calibration data stuff
-            ################
             print "*---------------------------------------------------------*"
+
             bno055.enter_fused_data_mode()      # reenter imu mode
-            # bno055.write_bytes([VECTOR_EULER])  # address for next read
             bno055.write_bytes([VECTOR_QUATERNION])
+        ########
+
     bno055.resetToTerm()
