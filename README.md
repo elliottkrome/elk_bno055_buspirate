@@ -5,7 +5,7 @@ This is a Python project that allows for the use of the bus pirate's i2c capabil
 
 This was originally developed as part of a Temple University student group, [IdeasX](https://hackaday.io/project/12850-ideasx).
 
-There are two basic parts to this.
+There are two basic parts to this:
 
 #### 1. An I2C interface to the Bosch BNO055 chip
 It uses the [I2C protocol](https://en.wikipedia.org/wiki/I%C2%B2C) capabilities of the [Bus Pirate](https://en.wikipedia.org/wiki/Bus_Pirate) to stream [quaternion](http://mathworld.wolfram.com/Quaternion.html) data from a *beautiful* 9DOF sensor, the [BNOO55](https://www.bosch-sensortec.com/bst/products/all_products/bno055) from Bosch Sensortec. I used (and altered) the [audiohacked/pyBusPirate](https://github.com/audiohacked/pyBusPirate/tree/d6de9f90cb6373aa5fe0779a831cf496364fb01d) library for some of this.
