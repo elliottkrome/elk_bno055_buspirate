@@ -1,20 +1,8 @@
 #!Users/elliottkrome/anaconda/bin/python
-import logging
-import os
-import pickle
-from BNO055 import *
-# from BNO055_1 import *
-import quaternion
+
+from bno055 import BNO055
 import numpy as np
-from pyquaternion import Quaternion
-
-
-from matplotlib import pyplot as plt
-from matplotlib import animation
-from mpl_toolkits.mplot3d import Axes3D
-
-logger = logging.getLogger(__name__)
-
+import time
 
 if __name__ == '__main__':
 

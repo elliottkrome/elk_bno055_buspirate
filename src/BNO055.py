@@ -2,19 +2,18 @@
 # https://github.com/adafruit/Adafruit_Python_BNO055/blob/master/Adafruit_BNO055/BNO055.py#L360
 
 import sys
-import logging
-from BNO055_registers import Page_0
+from bno055_registers import Page_0
 from pyBusPirate.BinaryMode.I2C import *
 import time
 import numpy as np
+
 from pyquaternion import Quaternion
+
 from matplotlib import pyplot as plt
 from matplotlib import animation as ani
 from mpl_toolkits.mplot3d import Axes3D
-import os
-import Queue
-import threading
 
+import os
 
 empty_cal_list = [0] * 22
 
