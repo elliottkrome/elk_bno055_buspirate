@@ -1,0 +1,453 @@
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:auto
+#+OPTIONS: html-preamble:t html-scripts:t html-style:t
+#+OPTIONS: html5-fancy:nil tex:t
+#+CREATOR: <a href="http://www.gnu.org/software/emacs/">Emacs</a> 24.5.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)
+#+HTML_CONTAINER: div
+#+HTML_DOCTYPE: xhtml-strict
+#+INFOJS_OPT: view:t toc:t ltoc:t mouse:underline buttons:0 path:http://thomasf.github.io/solarized-css/org-info.min.js
+#+OPTIONS: num:0 |:t toc:2 \n:t
+#+ATTR_HTML: :textarea t :width 40
+
+here are some notes I took while working on this - your mileage may vary.
+     
+* startup
+[[https://youtu.be/QKbJxytERvg][adafruit soldering vid]] 
+Here is some an ordered list of things to do that allows you to make sure that the BNO055 and bus pirate are connected and working properly.
+** setup for bno055
+*modified from*
+    [[https://learn.adafruit.com/adafruit-bno055-absolute-orientation-sensor/wiring-and-test][adafruit website wiring and testing section]] and [[http://dangerousprototypes.com/docs/Bus_Pirate_I2C][bus pirate site \rarr scroll to connection section]]
+
+make these connections:
+|------------+--------+--------+------------------------------------------|
+| bus pirate | color  | bno055 | description                              |
+|------------+--------+--------+------------------------------------------|
+| GND        | brown  | GND    | establish common ground                  |
+|------------+--------+--------+------------------------------------------|
+| 3V3        | red    | VIN    | *separate power from pullup resistor vpu?* |
+|            |        |        | 3.3 Volts IN                             |
+|            |        |        | anywhere 3~5 volts *should* (*?*) be OK      |
+|------------+--------+--------+------------------------------------------|
+| VPU        | green  | VIN    | pull-up resistor (10K))                  |
+|------------+--------+--------+------------------------------------------|
+| CLK        | purple | SCL    | serial clock                             |
+|------------+--------+--------+------------------------------------------|
+| MOSI       | gray   | SDA    | serial data                              |
+|------------+--------+--------+------------------------------------------|
+
+** starting terminal
+any terminal program /should/ do, but I am using emacs, so I use:
+
+'M-x serial-term'
+
+if you are not using emacs, open putty or similar program.
+
+** port selection
+my own notes, probably not useful for you:
+*** Windows
+select COM3 for windows  left USB
+       COM4 for windows right USB
+*** OSX
+: /dev/tty.usbserial-AH03F33K
+** baud rate
+115200 b/s
+
+** mode select
+'m <return>' 
+  then '4' to select i2c
+  then '1' for 5KHz     *(?)* 
+
+I believe that the top speed for the BNO055 is 32 kHz, unfortunately
+that is not one of the options of the bus pirate, so we must choose
+the highest speed which is less than 32kHz, which happens to be 5 kHz.
+
+** power on
+'W <return>'
+
+** pull up resistors
+'P <return>'
+
+** addressing:
+This uses is a macro which searches the address space
+*** get slave address
+type '(1) <enter>' to search for address space.
+I get:
+    0x50(0x28 W) 0x51(0x28 R)
+
+*** check chip id location 
+This checks the lowest 7 registers on the BNO055.
+If you get the same return as is listed below, everything is working OK. :)
+with slave address, read from chip address 0x00
+
+: [ 0x50 0x00 [ 0x51 r:7 ]
+
+#+BEGIN_EXAMPLE
+
+'[' is start bit
+
+  write address for BNO055 in i2c address space
+  (first we have to write the address from which we want to read)
+
+      address to read from in BNO055 address space
+      (this is arbitrary, I chose 0x00 just to check)
+
+            repeated start
+            ensures arbitration (control over bus)
+
+              read address for BNO055 in i2c address space
+
+                   read and repeat read operation for 7 bytes
+#+END_EXAMPLE
+
+**** result
+I2C START BIT
+WRITE: 0x50 ACK 
+WRITE: 0x00 ACK 
+I2C START BIT
+WRITE: 0x51 ACK 
+READ: 0xA0  ACK 0xFB  ACK 0x32  ACK 0x0F  ACK 0x11  ACK 0x03  ACK 0x15 
+NACK
+I2C STOP BIT
+
+
+the first read bit should be 0xA0 \larr this is the chip id address, and 0xA0 is the correct value
+If you get a response like the one above, everything is connected correctly.
+
+* bus pirate terminal interface stuff
+** simple keyboard directives
+*** type "?-<return>" to get list of commands
+
+*** type "m-<return>" to enter mode selection menu
+
+*** type "#-<return>" to reset
+
+*** pull up resistors
+"P" and "p" toggles
+*** power
+"W" and "w" toggles
+
+** script engine (BASIC) 
+[[http://dangerousprototypes.com/docs/Bus_Pirate_BASIC_script_reference][ref]]
+*** exit
+type "exit-<return>" to exit
+
+*** run
+type "run-<return>" to run
+
+*** show script
+list
+
+*** edit script
+<line number> <command> <arg>
+: 10 print "hello world"
+
+*** clear script
+type "new <return>"
+
+** macros
+
+*** show macros
+"(0)-<return>"
+
+*** 7bit address search
+"(1)-<return>"
+
+* bus pirate hardware stuff
+** 4leds
+
+*** PWR
+(bus pirate power)
+
+*** USB
+flashes when traffic goes through USB
+
+*** MODE
+on when *non*-HiZ mode selected from (menu 'm')
+
+*** VREG
+on when the on-board power supplies have been activated from 
+the user terminal (command capital 'W' ).
+
+** 5pins
+/In circuit serial programming (ICSP) header./
+"*normally only used to program it the first time at the factory*"
+*** further explanation
+This 1x5 block of 0.1" pin header is the programming connection for
+the PIC 24FJ64GA002 microcontroller. These pins can be used to write
+new firmware to the microcontroller with a programmer like the PICKIT2
+or ICD2 . The Bus Pirate firmware can also be updated over the USB
+connection using a bootloader, so the ICSP header is normally only
+used to program it the first time at the factory. Put a jumper between
+the PGC and PGD pins to trigger the on-board bootloader for firmware
+updates.
+
+** IO Pins
+[[http://dangerousprototypes.com/2010/12/07/bus-pirate-case-sticker/][source]]
+[[http://dangerousprototypes.com/wp-content/media/2010/12/bpv3_csv2-W490.jpg][backup source]]
+|-------+-------------------------------------------------+--------|
+| Pin   | Description                                     | color  |
+|-------+-------------------------------------------------+--------|
+| GND   | Ground (connect to ground of test circuit)      | brown  |
+| +3.3v | +3.3volt switchable power supply                | red    |
+| +5.0v | +5volt switchable power supply                  | orange |
+| ADC   | Voltage measurement probe (max 6 volts)         | yellow |
+| Vpu   | Voltage input for on-board pull-up resistors    | green  |
+| AUX   | Auxiliary IO, frequency probe,                  | blue   |
+|       | pulse-width modulator                           |        |
+| CLK   | Clock signal (I2C, SPI, JTAG, KB)               | poiple |
+| MOSI  | Master data out, slave in  (SPI, JTAG)          | gray   |
+|       | Serial data (1-Wire, I2C, KB), TX* (UART)       |        |
+| CS    | Chip Select (SPI), TMS(JTAG)                    | white  |
+| MISO  | Master data in, slave out (SPI, JTAG) RX (UART) | black  |
+|-------+-------------------------------------------------+--------|
+
+** i2c notes
+[[https://www.youtube.com/watch?v=6IAkYpmA1DQ][nice vid]]
+*** etymology
+IIC  inter-itegrated circuit protocol
+- I^2 C
+- I2C
+TWI - two wire interface
+
+* python
+** pybuspirate setup
+[[https://github.com/audiohacked/pyBusPirate]]
+install library by navigating into cloned directory 
+and typing from command line:
+
+'python setup.py install'
+
+now we can use the included I2C object using the import command:
+
+: from pyBusPirate.BinaryMode.I2C import I2C
+
+** pyquaternion setup
+
+[[https://github.com/KieranWynn/pyquaternion][git link]]
+
+git clone this git repo
+install library by navigating into cloned directory 
+and typing from command line:
+
+'python setup.py install'
+
+now we can use the included quaternion object object:
+
+: from pyquaternion import Quaternion
+
+** buffering concerns
+look at using -u option:
+    Force stdin, stdout and stderr to be totally unbuffered.  On systems
+    where it matters, also put stdin, stdout and stderr in binary mode.
+    Note that there is internal buffering in xreadlines(), readlines() and
+    file-object iterators ("for line in sys.stdin") which is not
+    influenced by this option. To work around this, you will want to use
+    "sys.stdin.read-line()" inside a "while 1:" loop.
+ie:
+python -u ...
+ 
+* bno055 hardware stuff
+** pins
+[[https://learn.adafruit.com/downloads/pdf/adafruit-bno055-absolute-orientation-sensor.pdf][from]]
+| Pin         | Description                                                     |
+|-------------+-----------------------------------------------------------------|
+| SCL         | I2C clock pin, connect to your microcontrollers I2C clock line. |
+|             | This pin can be used with 3V or 5V logic, and                   |
+|             | there's a 10K pullup on this pin.                               |
+| SDA         | I2C data pin, connect to your microcontrollers I2C data line.   |
+|             | This pin can be used with 3V or 5V logic,                       |
+|             | and there's a 10K pullup on this pin.                           |
+| RST         | Hardware reset pin. Set this pin low then high to cause         |
+|             | a reset on the sensor. This pin is 5V safe.                     |
+| INT         | The HW interrupt output pin, which can be configured to         |
+|             | generate an interrupt signal when certain events occur          |
+|             | like movement detected by the accelerometer, etc.               |
+|             | (not currently supported in the Adafruit library,               |
+|             | but the chip and HW is capable of generating this signal).      |
+|             | The voltage level out is 3V                                     |
+| ADR         | Set this pin low to change the default I2C address for the      |
+|             | BNO055 if you need to connect two ICs on the same I2C bus.      |
+|             | The default address is 0x28.                                    |
+|             | If this pin is connected to 3V, the address will be 0x29        |
+| PS0 and PS1 | These pins can be used to change the mode of the device         |
+|             | (it can also do HID-I2C and UART) and also are provided         |
+|             | in case Bosch provides a firmware update at some point for the  |
+|             | ARM Cortex M0 MCU inside the sensor.                            |
+|             | They should normally be left unconnected.                       |
+
+* quaternions
+[[http://mathworld.wolfram.com/Quaternion.html][wolfram]]
+i^2 = j^2 = k^2 = ijk = -1
+
+quaternion *H*
+
+** linear combination notation
+*H* can be written as linear combination of (a, b, c, d \in \real):
+
+    *H* = a*1 + b*i + c*j + d*k 
+
+note that setting j = k = 0 yields complex plane
+
+** 2x2 matrix notation
+*H* can be written as complex 2x2 matrix (where z and w are complex numbers):
+
+*H* = 
+| z   | w  |
+|-----+----|
+| -w* | z* |
+ 
+  =
+| a + ib  | c + id |
+|---------+--------|
+| -c + id | a - ib |
+
+Also note that each individual component can be represented using complex
+  2x2 matrices, where *U* is the identity matrix:
+*U* = 
+   | 1 | 0 |
+   |---+---|
+   | 0 | 1 |
+
+*I* = 
+| i |  0 |
+|---+----|
+| 0 | -i |
+
+*J* = 
+|  0 | 1 |
+|----+---|
+| -1 | 0 |
+
+*K* = 
+| 0 | i |
+|---+---|
+| i | 0 |
+
+*I*, *J*, and *K* are each solutions to the equation
+
+  *X^2* = *-U*       \larr VERY NICE
+
+** \real^4 representation
+
+  | 1 | 0 | 0 | 0 |
+  |---+---+---+---|
+  | 0 | 1 | 0 | 0 |
+  |---+---+---+---| 
+  | 0 | 0 | 1 | 0 |
+  |---+---+---+---|
+  | 0 | 0 | 0 | 1 |
+= u = 1       = -(-1)
+
+|  0 | 1 |  0 | 0 |
+|----+---+----+---|
+| -1 | 0 |  0 | 0 |
+|----+---+----+---| 
+|  0 | 0 |  0 | 1 |
+|----+---+----+---|
+|  0 | 0 | -1 | 0 |
+= i = (j * k) = -(k * j)
+
+| 0 | 0 |  0 | -1 |
+|---+---+----+----|
+| 0 | 0 | -1 |  0 | 
+|---+---+----+----| 
+| 0 | 1 |  0 |  0 |
+|---+---+----+----|
+| 1 | 0 |  0 | 0  |
+= j = (j * i) = -(i * k)
+
+
+| 0 |  0 | -1 | 0 |
+|---+----+----+---|
+| 0 |  0 |  0 | 1 |
+|---+----+----+---|
+| 1 |  0 |  0 | 0 |
+|---+----+----+---|
+| 0 | -1 |  0 | 0 |
+ = k = (i * j) = -(j * i)
+
+** element multiplication table
+|---+---+----+----+----|
+|   | *1* | *i*  | *j*  | *k*  |
+|---+---+----+----+----|
+| *1* | 1 | i  | j  | k  |
+|---+---+----+----+----|
+| *i* | i | -1 | k  | -j |
+|---+---+----+----+----|
+| *j* | j | -k | -1 | i  |
+|---+---+----+----+----|
+| *k* | k | j  | -i | -1 |
+|---+---+----+----+----|
+
+** quaternion conjugate
+
+*H*  = a + b*i + c*i + d*i
+*H** = a - b*i - c*i - d*i
+
+** sum and product
+
+*** sum
+\sum = (a_1 + b_1) * 1 
+  \plus (a_2 + b_2) * i 
+  \plus (a_3 + b_3) * j 
+  \plus (a_4 + b_4) * k
+
+*** product
+\prod =   ((a_1 * b_1) - (a_2 * b_2) - (a_3 * b_3) - (a_4 * b_4)) * 1 
+    \plus ((a_1 * b_2) + (a_2 * b_1) + (a_3 * b_4) - (a_4 * b_3)) * i 
+    \plus ((a_1 * b_3) - (a_2 * b_4) + (a_3 * b_1) + (a_4 * b_2)) * j
+    \plus ((a_1 * b_4) + (a_2 * b_3) - (a_3 * b_2) + (a_4 * b_1)) * k
+
+   a_1 = t_1, b_1 = t_2      # some redefinitions, only naming conventions
+   a_2 = x_1, b_2 = x_1      #  ||
+   a_3 = y_1, b_3 = y_3      #  ||
+   a_4 = z_1, b_4 = z_1      #  ||
+
+and v_n is vector (x_n, y_n, z_n)
+
+*Simplest Notation*
+then \prod = (t_1, v_1)(t_2, v_2)
+       = ((t_1 * t_2) - v_1.v_2), (t_1 * v_2) + (t_2 * v_1) + (v_1 x v_2))
+
+
+*** comparing quaternion multiplication to complex number multiplication
+\prod 
+= (t_1, v_1)(t_2, v_2)
+= ((t_1 * t_2) - v_1.v_2), (t_1 * v_2) + (t_2 * v_1) + (v_1 x v_2))
+= ((u_1 * u_2) - (v_1 * v_2), (u_1 * v_2) + (u_2 * v_1))
+
+#+BEGIN_EXAMPLE
+
+                      this becomes dot product
+                                            and there is the additional cross product here
+#+END_EXAMPLE
+** norm
+norm(*H*) = \radic(*H* * *H**) = \radic(h_1^2 + h_2^2 + h_3^2 + h_4^2)
+
+
+
+** Euler's four-square identity
+(a_1^2 + a_2^2 + a_3^2 + a_4^2)(b_1^2 + b_2^2 + b_3^2 + b_4^2) 
+
+                =   (a_1 b_1 + a_2 b_2 + a_3 b_3 + a_4 b_4)^2
+                  \plus (a_1 b_2 - a_2 b_1 + a_3 b_4 - a_4 b_3)^2
+                  \plus (a_1 b_3 - a_2 b_4 - a_3 b_1 + a_4 b_2)^2
+                  \plus (a_1 b_4 + a_2 b_3 - a_3 b_2 - a_4 b_1)^2
+                    
+* random stuff
+[[https://learn.adafruit.com/downloads/pdf/adafruit-bno055-absolute-orientation-sensor.pdf][adafruit manual]]
+[[http://dangerousprototypes.com/2009/10/14/bus-pirate-binary-i2c-mode/][bus pirate binary mode]]
+[[http://dangerousprototypes.com/docs/Bus_Pirate_I2C][bp_i2c]]
+[[https://learn.adafruit.com/bno055-absolute-orientation-sensor-with-raspberry-pi-and-beaglebone-black/webgl-example][BNO055_calibration]]
+[[http://dangerousprototypes.com/forum/viewtopic.php?t=1440][change to bitbang.py source]]
+[[https://anaconda.org/moble/quaternion][quaternion_source_code_used_as_of_May_11]]
+[[https://github.com/KieranWynn/pyquaternion][possible_quat_animation_git]]
+*Before you install go into def of timeout in BitBang.py and change default*
+*timeout arg to 0.005*, and go into i2c and make all timeout() calls calls to default
+
+[[https://github.com/xioTechnologies/Gait-Tracking-With-x-IMU][maybe_useful?]]
+
+When done *always* return to HiZ mode
+                with m (to enter mode selection)
+                     <return>
+
+*BNO055 ONLY WORKS @ 5KHZ (so it seems)*

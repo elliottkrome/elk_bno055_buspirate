@@ -1,0 +1,6 @@
+[submodule "pyBusPirate"]
+	path = pyBusPirate
+	url = https://github.com/audiohacked/pyBusPirate
+[submodule "pyquaternion"]
+	path = pyquaternion
+	url = https://github.com/KieranWynn/pyquaternion
